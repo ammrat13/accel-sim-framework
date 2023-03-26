@@ -1,0 +1,23 @@
+# Development Environment
+# ```
+# $ export ACCELSIM_TRACES=${PATH_TO_TRACES}
+# $ ACCELSIM_UID=$(id -u) ACCELSIM_GID=$(id -g) docker-compose run --rm dev
+# ```
+
+version: "3"
+
+services:
+  dev:
+    image: accelsim/ubuntu-18.04_cuda-11:latest
+    user: "${ACCELSIM_UID}:${ACCELSIM_GID}"
+
+    # Mount this repository
+    volumes:
+      - ".:/accelsim/"
+      - "${ACCELSIM_TRACES}:/traces/"
+    # Start in the mounted repository
+    working_dir: /accelsim/
+
+    # Interactivity
+    stdin_open: true
+    tty: true
