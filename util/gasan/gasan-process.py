@@ -46,9 +46,10 @@ while True:
             insts.append(Instruction.from_str(il))
 
         # Do processing
-        insts = gasan_pkg.instruction.process_block(insts)
+        insts = gasan_pkg.instruction.process_block_insts(insts)
 
         # Write out
+        OUT.write(f"insts = {len(insts)}\n")
         for i in insts:
             OUT.write(str(i) + "\n")
 

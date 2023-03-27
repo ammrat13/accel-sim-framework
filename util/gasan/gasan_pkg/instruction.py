@@ -12,7 +12,7 @@ class Instruction:
         self,
         pc: int, mask: List[bool], opcode: str,
         dsts: List[str], srcs: List[str],
-        mem_width: int, mem_addrs: List[int]
+        mem_width: int, mem_addrs: List[int] = [0x0]*32
     ):
         # Check execution mask
         assert len(mask) == 32, "Incorrect number of masks"
@@ -39,9 +39,8 @@ class Instruction:
         ret += f"{self.pc:04x} "
         # Mask
         mask_num = 0
-        for b in self.mask:
-            mask_num *= 2
-            mask_num += 1 if b else 0
+        for t,a in enumerate(self.mask):
+            mask_num |= (1 << t) if a else 0
         ret += f"{mask_num:08x} "
         # Destination registers
         ret += f"{len(self.dsts)} "
@@ -81,8 +80,7 @@ class Instruction:
         pc = int(ts[0], 16)
         ts.pop(0)
         # Mask
-        mask_bin = int(ts[0], 16)
-        mask = [mask_bin & (1 << i) != 0 for i in range(32)]
+        mask = [int(ts[0], 16) & (1 << t) != 0 for t in range(32)]
         ts.pop(0)
         # Destination registers
         num_dsts = int(ts[0])
@@ -119,6 +117,5 @@ class Instruction:
 
         return Instruction(pc, mask, opcode, dsts, srcs, mem_width, mem_addrs)
 
-
-def process_block(block: List[Instruction]) -> List[Instruction]:
+def process_block_insts(block: List[Instruction]) -> List[Instruction]:
     return block
