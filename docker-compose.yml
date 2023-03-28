@@ -10,6 +10,8 @@ services:
   dev:
     image: accelsim/ubuntu-18.04_cuda-11:latest
     user: "${ACCELSIM_UID}:${ACCELSIM_GID}"
+    environment:
+      - CUDA_INSTALL_PATH=/usr/local/cuda-11.0/
 
     # Mount this repository
     volumes:
