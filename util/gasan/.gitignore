@@ -1,2 +1,5 @@
 # Compiled files
 __pycache__/
+
+# Generated scripts
+gasan-process-all.sh
