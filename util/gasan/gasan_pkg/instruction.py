@@ -8,6 +8,8 @@ class Instruction:
     Note that we keep addresses around for all threads, even if they're unused.
     """
 
+    WARP_SIZE = 32
+
     def __init__(
         self,
         pc: int, mask: List[bool], opcode: str,
@@ -15,10 +17,10 @@ class Instruction:
         mem_width: int, mem_addrs: List[int] = [0x0]*32
     ):
         # Check execution mask
-        assert len(mask) == 32, "Incorrect number of masks"
+        assert len(mask) == Instruction.WARP_SIZE, "Incorrect number of masks"
         # Check memory addresses
-        assert mem_width in [0, 1, 2, 4, 8], "Weird memory granularity"
-        assert len(mem_addrs) == 32, "Incorrect number of addresses"
+        assert mem_width in [0, 1, 2, 4, 8, 16], "Weird memory granularity"
+        assert len(mem_addrs) == Instruction.WARP_SIZE, "Incorrect number of addresses"
 
         # Set the variables
         self.pc = pc
@@ -80,7 +82,10 @@ class Instruction:
         pc = int(ts[0], 16)
         ts.pop(0)
         # Mask
-        mask = [int(ts[0], 16) & (1 << t) != 0 for t in range(32)]
+        mask = [
+            int(ts[0], 16) & (1 << t) != 0
+            for t in range(Instruction.WARP_SIZE)
+        ]
         ts.pop(0)
         # Destination registers
         num_dsts = int(ts[0])
@@ -105,16 +110,60 @@ class Instruction:
 
         # Addresses
         # Only do the decoding if we have memory
-        mem_addrs = [0x0] * 32
+        mem_addrs = [0x0] * Instruction.WARP_SIZE
         if mem_width != 0:
             # Get the encoded mode
             mode = int(ts[0])
             assert mode in [0, 1, 2], "Bad mode"
             ts.pop(0)
 
-            # TODO: Actually decode the memory operands
-            pass
+            # address_format::list_all
+            if mode == 0:
+                for t in range(Instruction.WARP_SIZE):
+                    if mask[t]:
+                        mem_addrs[t] = int(ts[0], 16)
+                        ts.pop(0)
 
+            # address_format::base_stride
+            if mode == 1:
+                # Get information
+                cur_addr = int(ts[0], 16)
+                ts.pop(0)
+                stride = int(ts[0])
+                ts.pop(0)
+                # Parse
+                first_bit1_found = False
+                last_bit1_found = False
+                for t in range(Instruction.WARP_SIZE):
+                    if not first_bit1_found:
+                        if mask[t]:
+                            first_bit1_found = True
+                            mem_addrs[t] = cur_addr
+                    elif not last_bit1_found:
+                        if mask[t]:
+                            cur_addr += stride
+                            mem_addrs[t] = cur_addr
+                        else:
+                            last_bit1_found = True
+                    else:
+                        assert not mask[t], "Bad base-stride encoding"
+
+            # address_format::base_delta
+            if mode == 2:
+                first_bit1_found = False
+                for t in range(Instruction.WARP_SIZE):
+                    if mask[t]:
+                        if not first_bit1_found:
+                            first_bit1_found = True
+                            mem_addrs[t] = int(ts[0], 16)
+                            ts.pop(0)
+                            cur_addr = mem_addrs[t]
+                        else:
+                            mem_addrs[t] = cur_addr + int(ts[0])
+                            ts.pop(0)
+                            cur_addr = mem_addrs[t]
+
+        assert len(ts) == 0, "Not all operands parsed"
         return Instruction(pc, mask, opcode, dsts, srcs, mem_width, mem_addrs)
 
 def process_block_insts(block: List[Instruction]) -> List[Instruction]:
