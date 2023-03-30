@@ -64,7 +64,7 @@ class Instruction:
             ret += "0 "
             for i, a in enumerate(self.mem_addrs):
                 if self.mask[i]:
-                    ret += f"0x{a:016x} "
+                    ret += f"0x{a:x} "
 
         return ret
 
