@@ -214,7 +214,7 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
             ret.append(Instruction(
                 i.pc, i.mask, "LDG.E.U8.SYS",
                 [ctx.r_block_val], [ctx.r_block_val], 1,
-                list(map(lambda a: a >> 8 + ctx.SHADOW_BASE, i.mem_addrs))))
+                list(map(lambda a: a // 256 + ctx.SHADOW_BASE, i.mem_addrs))))
             # if Rblock_val == 0
             #   ISETP.NE.U32.AND P0, Rblock_val, RZ
             #   !@P0 BRA DIE
