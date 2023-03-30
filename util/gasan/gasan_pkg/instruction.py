@@ -203,40 +203,40 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
             # ------------------------------------------------------------------
             # Rblock_val = *(Raddr / 256 + Rshadow_base)
             #   SHR Rblock_val, Raddr, 8
-            #   IADD3 Rblock_val, Rblock_val, Rshadow_base, RZ
+            #   IADD Rblock_val, Rblock_val, Rshadow_base
             #   LDG.E.U8.SYS Rblock_val, (Rblock_val)
             ret.append(Instruction(
                 i.pc, i.mask, "SHR",
                 [ctx.r_block_val], [r_addr], 0))
             ret.append(Instruction(
-                i.pc, i.mask, "IADD3",
+                i.pc, i.mask, "IADD",
                 [ctx.r_block_val], [ctx.r_block_val, ctx.r_shadow_base], 0))
             ret.append(Instruction(
                 i.pc, i.mask, "LDG.E.U8.SYS",
                 [ctx.r_block_val], [ctx.r_block_val], 1,
-                list(map(lambda a: a >> 8, i.mem_addrs))))
+                list(map(lambda a: a >> 8 + ctx.SHADOW_BASE, i.mem_addrs))))
             # if Rblock_val == 0
-            #   ISETP.EQ.AND Rblock_val, RZ
-            #   BRA DIE
+            #   ISETP.NE.U32.AND P0, Rblock_val, RZ
+            #   !@P0 BRA DIE
             ret.append(Instruction(
-                i.pc, i.mask, "ISETP.EQ.AND",
+                i.pc, i.mask, "ISETP.NE.U32.AND",
                 [], [ctx.r_block_val], 0))
             ret.append(Instruction(
-                i.pc, i.mask, "BRA",
+                i.pc, [False]*32, "BRA",
                 [], [], 0))
             # Rblock_off = Raddr % 256
-            #   LOP.AND Rblock_off, Raddr, 0xff
+            #   LOP32I.AND Rblock_off, Raddr, 0xff
             ret.append(Instruction(
-                i.pc, i.mask, "LOP.AND",
+                i.pc, i.mask, "LOP32I.AND",
                 [ctx.r_block_off], [r_addr], 0))
             # if Rblock_off > Rblock_val:
-            #   ISETP.GT.AND Rblock_off, Rblock_val
-            #   BRA DIE
+            #   ISETP.GT.U32.AND P0, Rblock_off, Rblock_val
+            #   !@P0 BRA DIE
             ret.append(Instruction(
                 i.pc, i.mask, "ISETP.GT.AND",
                 [], [ctx.r_block_off, ctx.r_block_val], 0))
             ret.append(Instruction(
-                i.pc, i.mask, "BRA",
+                i.pc, [False]*32, "BRA",
                 [], [], 0))
 
         # Always append the current instruction
