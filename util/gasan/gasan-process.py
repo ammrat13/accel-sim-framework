@@ -46,7 +46,7 @@ while True:
             insts.append(Instruction.from_str(il))
 
         # Do processing
-        insts = gasan_pkg.instruction.process_block_insts(insts)
+        insts = gasan_pkg.instruction.process_block_insts(insts, ctx)
 
         # Write out
         OUT.write(f"insts = {len(insts)}\n")

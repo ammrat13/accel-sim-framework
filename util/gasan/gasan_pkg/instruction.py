@@ -1,4 +1,5 @@
 from typing import List
+from gasan_pkg.context import Context
 
 class Instruction:
     """Represents a single instruction from a processed trace. The format is
@@ -166,5 +167,79 @@ class Instruction:
         assert len(ts) == 0, "Not all operands parsed"
         return Instruction(pc, mask, opcode, dsts, srcs, mem_width, mem_addrs)
 
-def process_block_insts(block: List[Instruction]) -> List[Instruction]:
-    return block
+def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruction]:
+    """Inserts instructions before every load or store to simulate the effects
+    of ASAN.
+    """
+
+    ret = []
+    for i in insts:
+
+        # Check if load or store
+        # Based on what the opcode is
+        is_ld = i.opcode.startswith("LDG")
+        is_st = i.opcode.startswith("STG")
+        if is_ld or is_st:
+            assert not is_ld or not is_st, "Instruction can't both load and store"
+
+            # Get the register with the address
+            # Also check the operands have the right length
+            r_addr = None
+            if is_ld:
+                assert len(i.srcs) == 1, "Wrong number of operands for LDG"
+                r_addr = i.srcs[0]
+            if is_st:
+                assert len(i.srcs) == 2, "Wrong number of operands for STG"
+                r_addr = i.srcs[1]
+
+            # Code:
+            # Rblock_val = *(Raddr / 256 + Rshadow_base)
+            # if Rblock_val == 0:
+            #   // DIE
+            # Rblock_off = Raddr % 256
+            # if Rblock_off > Rblock_val:
+            #   // DIE
+            # // CONTINUE
+            # ------------------------------------------------------------------
+            # Rblock_val = *(Raddr / 256 + Rshadow_base)
+            #   SHR Rblock_val, Raddr, 8
+            #   IADD3 Rblock_val, Rblock_val, Rshadow_base, RZ
+            #   LDG.E.U8.SYS Rblock_val, (Rblock_val)
+            ret.append(Instruction(
+                i.pc, i.mask, "SHR",
+                [ctx.r_block_val], [r_addr], 0))
+            ret.append(Instruction(
+                i.pc, i.mask, "IADD3",
+                [ctx.r_block_val], [ctx.r_block_val, ctx.r_shadow_base], 0))
+            ret.append(Instruction(
+                i.pc, i.mask, "LDG.E.U8.SYS",
+                [ctx.r_block_val], [ctx.r_block_val], 1,
+                list(map(lambda a: a >> 8, i.mem_addrs))))
+            # if Rblock_val == 0
+            #   ISETP.EQ.AND Rblock_val, RZ
+            #   BRA DIE
+            ret.append(Instruction(
+                i.pc, i.mask, "ISETP.EQ.AND",
+                [], [ctx.r_block_val], 0))
+            ret.append(Instruction(
+                i.pc, i.mask, "BRA",
+                [], [], 0))
+            # Rblock_off = Raddr % 256
+            #   LOP.AND Rblock_off, Raddr, 0xff
+            ret.append(Instruction(
+                i.pc, i.mask, "LOP.AND",
+                [ctx.r_block_off], [r_addr], 0))
+            # if Rblock_off > Rblock_val:
+            #   ISETP.GT.AND Rblock_off, Rblock_val
+            #   BRA DIE
+            ret.append(Instruction(
+                i.pc, i.mask, "ISETP.GT.AND",
+                [], [ctx.r_block_off, ctx.r_block_val], 0))
+            ret.append(Instruction(
+                i.pc, i.mask, "BRA",
+                [], [], 0))
+
+        # Always append the current instruction
+        ret.append(i)
+
+    return ret
