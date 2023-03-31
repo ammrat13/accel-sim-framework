@@ -23,3 +23,12 @@ services:
     # Interactivity
     stdin_open: true
     tty: true
+
+    # GPU Access
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
