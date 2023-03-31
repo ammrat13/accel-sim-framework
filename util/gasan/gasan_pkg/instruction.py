@@ -182,6 +182,7 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
         is_st = i.opcode.startswith("STG")
         if is_ld or is_st:
             assert not is_ld or not is_st, "Instruction can't both load and store"
+            assert i.mem_width != 0, "Memory operation must have width"
 
             # Get the register with the address
             # Also check the operands have the right length
@@ -196,37 +197,13 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
             # Generate different code depending on the variant
             assert VARIANT in [128, 256], "Bad variant"
 
-            if VARIANT == 256:
-                ret.append(Instruction(
-                    i.pc, i.mask, "SHR",
-                    [ctx.r_block_val], [r_addr], 0))
-                ret.append(Instruction(
-                    i.pc, i.mask, "IADD",
-                    [ctx.r_block_val], [ctx.r_block_val, ctx.r_shadow_base], 0))
-                ret.append(Instruction(
-                    i.pc, i.mask, "LDG.E.U8.SYS",
-                    [ctx.r_block_val], [ctx.r_block_val], 1,
-                    list(map(lambda a: a // 256, i.mem_addrs))))
-                ret.append(Instruction(
-                    i.pc, i.mask, "ISETP.NE.U32.AND",
-                    [], [ctx.r_block_val], 0))
-                ret.append(Instruction(
-                    i.pc, [False]*32, "BRA",
-                    [], [], 0))
-                ret.append(Instruction(
-                    i.pc, i.mask, "LOP32I.AND",
-                    [ctx.r_block_off], [r_addr], 0))
-                ret.append(Instruction(
-                    i.pc, i.mask, "ISETP.GT.AND",
-                    [], [ctx.r_block_off, ctx.r_block_val], 0))
-                ret.append(Instruction(
-                    i.pc, [False]*32, "BRA",
-                    [], [], 0))
-
             if VARIANT == 128:
                 ret.append(Instruction(
                     i.pc, i.mask, "SHR",
                     [ctx.r_block_val], [r_addr], 0))
+                ret.append(Instruction(
+                    i.pc, i.mask, "LOP.AND",
+                    [ctx.r_block_val], [ctx.r_block_val, ctx.r_shadow_mask], 0))
                 ret.append(Instruction(
                     i.pc, i.mask, "IADD",
                     [ctx.r_block_val], [ctx.r_block_val, ctx.r_shadow_base], 0))
@@ -235,17 +212,44 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
                     [ctx.r_block_val], [ctx.r_block_val], 1,
                     list(map(lambda a: a // 128, i.mem_addrs))))
                 ret.append(Instruction(
-                    i.pc, i.mask, "ISETP.NE.U32.AND",
-                    [], [ctx.r_block_val], 0))
+                    i.pc, i.mask, "LOP32I.AND",
+                    [ctx.r_block_off], [r_addr], 0))
+                ret.append(Instruction(
+                    i.pc, i.mask, "IADD",
+                    [ctx.r_block_off], [ctx.r_block_off], 0))
+                ret.append(Instruction(
+                    i.pc, i.mask, "ISETP.GT.AND",
+                    [], [ctx.r_block_val, ctx.r_block_off], 0))
                 ret.append(Instruction(
                     i.pc, [False]*32, "BRA",
                     [], [], 0))
+
+            if VARIANT == 256:
+                ret.append(Instruction(
+                    i.pc, i.mask, "SHR",
+                    [ctx.r_block_val], [r_addr], 0))
+                ret.append(Instruction(
+                    i.pc, i.mask, "LOP.AND",
+                    [ctx.r_block_val], [ctx.r_block_val, ctx.r_shadow_mask], 0))
+                ret.append(Instruction(
+                    i.pc, i.mask, "IADD",
+                    [ctx.r_block_val], [ctx.r_block_val, ctx.r_shadow_base], 0))
+                ret.append(Instruction(
+                    i.pc, i.mask, "LDG.E.U8.SYS",
+                    [ctx.r_block_val], [ctx.r_block_val], 1,
+                    list(map(lambda a: a // 256, i.mem_addrs))))
                 ret.append(Instruction(
                     i.pc, i.mask, "LOP32I.AND",
                     [ctx.r_block_off], [r_addr], 0))
                 ret.append(Instruction(
-                    i.pc, i.mask, "ISETP.GT.AND",
-                    [], [ctx.r_block_off, ctx.r_block_val], 0))
+                    i.pc, i.mask, "IADD",
+                    [ctx.r_block_off], [ctx.r_block_off], 0))
+                ret.append(Instruction(
+                    i.pc, i.mask, "ISETP.NE.AND",
+                    [], [ctx.r_block_val], 0))
+                ret.append(Instruction(
+                    i.pc, i.mask, "ISETP.GE.AND",
+                    [], [ctx.r_block_val, ctx.r_block_off], 0))
                 ret.append(Instruction(
                     i.pc, [False]*32, "BRA",
                     [], [], 0))
