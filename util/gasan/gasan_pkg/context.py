@@ -12,6 +12,8 @@ class Context:
         into the "block" represented by shadow memory
     :ivar Optional[str] r_shadow_base: Register to store the base address of
         shadow memory
+    :ivar Optional[str] r_shadow_mask: Register to store the mask for shadow
+        offsets
     """
 
     def __init__(self):
@@ -19,6 +21,7 @@ class Context:
         self.r_block_val = None
         self.r_block_off = None
         self.r_shadow_base = None
+        self.r_shadow_mask = None
 
     def is_finalized(self) -> bool:
         """Whether all of the context information has a non-None value. This
@@ -26,7 +29,8 @@ class Context:
         """
         return self.r_block_val is not None and \
             self.r_block_off is not None and \
-            self.r_shadow_base is not None
+            self.r_shadow_base is not None and \
+            self.r_shadow_mask is not None
 
     def process_line(self, line: str) -> Optional[str]:
         """Update the context information based on a non-instruction line. May
@@ -42,14 +46,15 @@ class Context:
 
             # Compute the new number of registers
             # Warn if there's not enough space
-            if old_nregs > 255 - 3:
+            if old_nregs > 255 - 4:
                 print(f"WARN: Not enough registers with -nregs = {old_nregs}", file=stderr)
-            new_nregs = min(255, old_nregs + 3)
+            new_nregs = min(255, old_nregs + 4)
 
             # Compute the register numbers to use
-            self.r_block_val = f"R{new_nregs - 3}"
-            self.r_block_off = f"R{new_nregs - 2}"
-            self.r_shadow_base = f"R{new_nregs - 1}"
+            self.r_block_val = f"R{new_nregs - 4}"
+            self.r_block_off = f"R{new_nregs - 3}"
+            self.r_shadow_base = f"R{new_nregs - 2}"
+            self.r_shadow_mask = f"R{new_nregs - 1}"
 
             # Write the new nregs
             return f"-nregs = {new_nregs}\n"
