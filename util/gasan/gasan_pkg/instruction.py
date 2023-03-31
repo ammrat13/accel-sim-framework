@@ -202,20 +202,20 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
                     i.pc, i.mask, "SHR",
                     [ctx.r_block_val], [r_addr], 0))
                 ret.append(Instruction(
-                    i.pc, i.mask, "LOP.AND",
+                    i.pc, i.mask, "LOP32I.AND",
                     [ctx.r_block_val], [ctx.r_block_val, ctx.r_shadow_mask], 0))
                 ret.append(Instruction(
-                    i.pc, i.mask, "IADD",
+                    i.pc, i.mask, "IMAD.IADD",
                     [ctx.r_block_val], [ctx.r_block_val, ctx.r_shadow_base], 0))
                 ret.append(Instruction(
                     i.pc, i.mask, "LDG.E.U8.SYS",
                     [ctx.r_block_val], [ctx.r_block_val], 1,
-                    list(map(lambda a: a // 128, i.mem_addrs))))
+                    list(map(lambda a: (a // 128) % 2**28, i.mem_addrs))))
                 ret.append(Instruction(
                     i.pc, i.mask, "LOP32I.AND",
                     [ctx.r_block_off], [r_addr], 0))
                 ret.append(Instruction(
-                    i.pc, i.mask, "IADD",
+                    i.pc, i.mask, "IMAD.IADD",
                     [ctx.r_block_off], [ctx.r_block_off], 0))
                 ret.append(Instruction(
                     i.pc, i.mask, "ISETP.GT.AND",
@@ -229,20 +229,20 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
                     i.pc, i.mask, "SHR",
                     [ctx.r_block_val], [r_addr], 0))
                 ret.append(Instruction(
-                    i.pc, i.mask, "LOP.AND",
+                    i.pc, i.mask, "LOP32I.AND",
                     [ctx.r_block_val], [ctx.r_block_val, ctx.r_shadow_mask], 0))
                 ret.append(Instruction(
-                    i.pc, i.mask, "IADD",
+                    i.pc, i.mask, "IMAD.IADD",
                     [ctx.r_block_val], [ctx.r_block_val, ctx.r_shadow_base], 0))
                 ret.append(Instruction(
                     i.pc, i.mask, "LDG.E.U8.SYS",
                     [ctx.r_block_val], [ctx.r_block_val], 1,
-                    list(map(lambda a: a // 256, i.mem_addrs))))
+                    list(map(lambda a: (a // 256) % 2**27, i.mem_addrs))))
                 ret.append(Instruction(
                     i.pc, i.mask, "LOP32I.AND",
                     [ctx.r_block_off], [r_addr], 0))
                 ret.append(Instruction(
-                    i.pc, i.mask, "IADD",
+                    i.pc, i.mask, "IMAD.IADD",
                     [ctx.r_block_off], [ctx.r_block_off], 0))
                 ret.append(Instruction(
                     i.pc, i.mask, "ISETP.NE.AND",
