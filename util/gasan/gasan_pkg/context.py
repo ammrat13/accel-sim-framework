@@ -13,6 +13,7 @@ class Context:
     :ivar Optional[str] r_shadow_base: Register to store the base address of
         shadow memory
     :ivar int SHADOW_BASE: Base address of shadow memory
+    :ivar int VARIANT: Either 128 or 256
     """
 
     def __init__(self):
@@ -21,6 +22,7 @@ class Context:
         self.r_block_off = None
         self.r_shadow_base = None
         self.SHADOW_BASE = 0x700000000000
+        self.VARIANT = 128
 
     def is_finalized(self) -> bool:
         """Whether all of the context information has a non-None value. This
