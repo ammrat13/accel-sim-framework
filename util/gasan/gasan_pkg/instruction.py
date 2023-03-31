@@ -1,4 +1,5 @@
 from typing import List
+from gasan_config import VARIANT
 from gasan_pkg.context import Context
 
 class Instruction:
@@ -193,22 +194,9 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
                 r_addr = i.srcs[1]
 
             # Generate different code depending on the variant
-            assert ctx.VARIANT in [128, 256], "Bad variant"
+            assert VARIANT in [128, 256], "Bad variant"
 
-            if ctx.VARIANT == 256:
-                # Code:
-                # Rblock_val = *(Raddr / 256 + Rshadow_base)
-                # if Rblock_val == 0:
-                #   // DIE
-                # Rblock_off = Raddr % 256
-                # if Rblock_off > Rblock_val:
-                #   // DIE
-                # // CONTINUE
-                # --------------------------------------------------------------
-                # Rblock_val = *(Raddr / 256 + Rshadow_base)
-                #   SHR Rblock_val, Raddr, 8
-                #   IADD Rblock_val, Rblock_val, Rshadow_base
-                #   LDG.E.U8.SYS Rblock_val, (Rblock_val)
+            if VARIANT == 256:
                 ret.append(Instruction(
                     i.pc, i.mask, "SHR",
                     [ctx.r_block_val], [r_addr], 0))
@@ -218,24 +206,16 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
                 ret.append(Instruction(
                     i.pc, i.mask, "LDG.E.U8.SYS",
                     [ctx.r_block_val], [ctx.r_block_val], 1,
-                    list(map(lambda a: a // 256 + ctx.SHADOW_BASE, i.mem_addrs))))
-                # if Rblock_val == 0
-                #   ISETP.NE.U32.AND P0, Rblock_val, RZ
-                #   !@P0 BRA DIE
+                    list(map(lambda a: a // 256, i.mem_addrs))))
                 ret.append(Instruction(
                     i.pc, i.mask, "ISETP.NE.U32.AND",
                     [], [ctx.r_block_val], 0))
                 ret.append(Instruction(
                     i.pc, [False]*32, "BRA",
                     [], [], 0))
-                # Rblock_off = Raddr % 256
-                #   LOP32I.AND Rblock_off, Raddr, 0xff
                 ret.append(Instruction(
                     i.pc, i.mask, "LOP32I.AND",
                     [ctx.r_block_off], [r_addr], 0))
-                # if Rblock_off > Rblock_val:
-                #   ISETP.GT.U32.AND P0, Rblock_off, Rblock_val
-                #   !@P0 BRA DIE
                 ret.append(Instruction(
                     i.pc, i.mask, "ISETP.GT.AND",
                     [], [ctx.r_block_off, ctx.r_block_val], 0))
@@ -243,20 +223,7 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
                     i.pc, [False]*32, "BRA",
                     [], [], 0))
 
-            if ctx.VARIANT == 128:
-                # Code:
-                # Rblock_val = *(Raddr / 128 + Rshadow_base)
-                # if Rblock_val == 0xff:
-                #   // DIE
-                # Rblock_off = Raddr % 128
-                # if Rblock_off > Rblock_val:
-                #   // DIE
-                # // CONTINUE
-                # --------------------------------------------------------------
-                # Rblock_val = *(Raddr / 128 + Rshadow_base)
-                #   SHR Rblock_val, Raddr, 7
-                #   IADD Rblock_val, Rblock_val, Rshadow_base
-                #   LDG.E.U8.SYS Rblock_val, (Rblock_val)
+            if VARIANT == 128:
                 ret.append(Instruction(
                     i.pc, i.mask, "SHR",
                     [ctx.r_block_val], [r_addr], 0))
@@ -266,24 +233,16 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
                 ret.append(Instruction(
                     i.pc, i.mask, "LDG.E.U8.SYS",
                     [ctx.r_block_val], [ctx.r_block_val], 1,
-                    list(map(lambda a: a // 128 + ctx.SHADOW_BASE, i.mem_addrs))))
-                # if Rblock_val == 0xff
-                #   ISETP.NE.U32.AND P0, Rblock_val, 0xff
-                #   !@P0 BRA DIE
+                    list(map(lambda a: a // 128, i.mem_addrs))))
                 ret.append(Instruction(
                     i.pc, i.mask, "ISETP.NE.U32.AND",
                     [], [ctx.r_block_val], 0))
                 ret.append(Instruction(
                     i.pc, [False]*32, "BRA",
                     [], [], 0))
-                # Rblock_off = Raddr % 128
-                #   LOP32I.AND Rblock_off, Raddr, 0x7f
                 ret.append(Instruction(
                     i.pc, i.mask, "LOP32I.AND",
                     [ctx.r_block_off], [r_addr], 0))
-                # if Rblock_off > Rblock_val:
-                #   ISETP.GT.U32.AND P0, Rblock_off, Rblock_val
-                #   !@P0 BRA DIE
                 ret.append(Instruction(
                     i.pc, i.mask, "ISETP.GT.AND",
                     [], [ctx.r_block_off, ctx.r_block_val], 0))
