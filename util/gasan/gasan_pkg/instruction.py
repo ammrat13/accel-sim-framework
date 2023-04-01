@@ -199,7 +199,7 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
 
             if VARIANT == 128:
                 ret.append(Instruction(
-                    i.pc, i.mask, "SHR",
+                    i.pc, i.mask, "IMAD.SHR",
                     [ctx.r_block_val], [r_addr], 0))
                 ret.append(Instruction(
                     i.pc, i.mask, "LOP32I.AND",
@@ -212,7 +212,7 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
                     [ctx.r_block_val], [ctx.r_block_val], 1,
                     list(map(lambda a: (a // 128) % 2**28, i.mem_addrs))))
                 ret.append(Instruction(
-                    i.pc, i.mask, "LOP32I.AND",
+                    i.pc, i.mask, "LOP.AND",
                     [ctx.r_block_off], [r_addr], 0))
                 ret.append(Instruction(
                     i.pc, i.mask, "IMAD.IADD",
@@ -226,7 +226,7 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
 
             if VARIANT == 256:
                 ret.append(Instruction(
-                    i.pc, i.mask, "SHR",
+                    i.pc, i.mask, "IMAD.SHR",
                     [ctx.r_block_val], [r_addr], 0))
                 ret.append(Instruction(
                     i.pc, i.mask, "LOP32I.AND",
@@ -239,7 +239,7 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
                     [ctx.r_block_val], [ctx.r_block_val], 1,
                     list(map(lambda a: (a // 256) % 2**27, i.mem_addrs))))
                 ret.append(Instruction(
-                    i.pc, i.mask, "LOP32I.AND",
+                    i.pc, i.mask, "LOP.AND",
                     [ctx.r_block_off], [r_addr], 0))
                 ret.append(Instruction(
                     i.pc, i.mask, "IMAD.IADD",
