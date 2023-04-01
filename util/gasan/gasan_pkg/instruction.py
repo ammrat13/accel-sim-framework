@@ -195,7 +195,34 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
                 r_addr = i.srcs[1]
 
             # Generate different code depending on the variant
-            assert VARIANT in [128, 256], "Bad variant"
+            assert VARIANT in [8, 128, 256], "Bad variant"
+
+            if VARIANT == 8:
+                ret.append(Instruction(
+                    i.pc, i.mask, "IMAD.SHR",
+                    [ctx.r_block_val], [r_addr], 0))
+                ret.append(Instruction(
+                    i.pc, i.mask, "LOP32I.AND",
+                    [ctx.r_block_val], [ctx.r_block_val, ctx.r_shadow_mask], 0))
+                ret.append(Instruction(
+                    i.pc, i.mask, "IMAD.IADD",
+                    [ctx.r_block_val], [ctx.r_block_val, ctx.r_shadow_base], 0))
+                ret.append(Instruction(
+                    i.pc, i.mask, "LDG.E.U8.SYS",
+                    [ctx.r_block_val], [ctx.r_block_val], 1,
+                    list(map(lambda a: (a // 8) % 2**32, i.mem_addrs))))
+                ret.append(Instruction(
+                    i.pc, i.mask, "LOP.AND",
+                    [ctx.r_block_off], [r_addr], 0))
+                ret.append(Instruction(
+                    i.pc, i.mask, "IMAD.IADD",
+                    [ctx.r_block_off], [ctx.r_block_off], 0))
+                ret.append(Instruction(
+                    i.pc, i.mask, "ISETP.GT.AND",
+                    [], [ctx.r_block_val, ctx.r_block_off], 0))
+                ret.append(Instruction(
+                    i.pc, [False]*32, "BRA",
+                    [], [], 0))
 
             if VARIANT == 128:
                 ret.append(Instruction(
