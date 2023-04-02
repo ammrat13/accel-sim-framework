@@ -1,5 +1,5 @@
 from typing import List
-from gasan_config import VARIANT
+from gasan_config import VARIANT, EMIT_LOADS
 from gasan_pkg.context import Context
 
 class Instruction:
@@ -207,10 +207,11 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
                 ret.append(Instruction(
                     i.pc, i.mask, "IMAD.IADD",
                     [ctx.r_block_val], [ctx.r_block_val, ctx.r_shadow_base], 0))
-                ret.append(Instruction(
-                    i.pc, i.mask, "LDG.E.U8.SYS",
-                    [ctx.r_block_val], [ctx.r_block_val], 1,
-                    list(map(lambda a: (a // 8) % 2**32, i.mem_addrs))))
+                if EMIT_LOADS:
+                    ret.append(Instruction(
+                        i.pc, i.mask, "LDG.E.U8.SYS",
+                        [ctx.r_block_val], [ctx.r_block_val], 1,
+                        list(map(lambda a: (a // 8) % 2**32, i.mem_addrs))))
                 ret.append(Instruction(
                     i.pc, i.mask, "LOP.AND",
                     [ctx.r_block_off], [r_addr], 0))
@@ -234,10 +235,11 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
                 ret.append(Instruction(
                     i.pc, i.mask, "IMAD.IADD",
                     [ctx.r_block_val], [ctx.r_block_val, ctx.r_shadow_base], 0))
-                ret.append(Instruction(
-                    i.pc, i.mask, "LDG.E.U8.SYS",
-                    [ctx.r_block_val], [ctx.r_block_val], 1,
-                    list(map(lambda a: (a // 128) % 2**28, i.mem_addrs))))
+                if EMIT_LOADS:
+                    ret.append(Instruction(
+                        i.pc, i.mask, "LDG.E.U8.SYS",
+                        [ctx.r_block_val], [ctx.r_block_val], 1,
+                        list(map(lambda a: (a // 128) % 2**28, i.mem_addrs))))
                 ret.append(Instruction(
                     i.pc, i.mask, "LOP.AND",
                     [ctx.r_block_off], [r_addr], 0))
@@ -261,10 +263,11 @@ def process_block_insts(insts: List[Instruction], ctx: Context) -> List[Instruct
                 ret.append(Instruction(
                     i.pc, i.mask, "IMAD.IADD",
                     [ctx.r_block_val], [ctx.r_block_val, ctx.r_shadow_base], 0))
-                ret.append(Instruction(
-                    i.pc, i.mask, "LDG.E.U8.SYS",
-                    [ctx.r_block_val], [ctx.r_block_val], 1,
-                    list(map(lambda a: (a // 256) % 2**27, i.mem_addrs))))
+                if EMIT_LOADS:
+                    ret.append(Instruction(
+                        i.pc, i.mask, "LDG.E.U8.SYS",
+                        [ctx.r_block_val], [ctx.r_block_val], 1,
+                        list(map(lambda a: (a // 256) % 2**27, i.mem_addrs))))
                 ret.append(Instruction(
                     i.pc, i.mask, "LOP.AND",
                     [ctx.r_block_off], [r_addr], 0))
