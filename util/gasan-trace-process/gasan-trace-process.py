@@ -5,9 +5,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)) + "/")
 
 import os
-import gasan_pkg.instruction
-from gasan_pkg.context import Context
-from gasan_pkg.instruction import Instruction
+import gasan_trace_process_pkg.instruction
+from gasan_trace_process_pkg.context import Context
+from gasan_trace_process_pkg.instruction import Instruction
 
 
 # Get the input and output files, and open them
@@ -46,7 +46,7 @@ while True:
             insts.append(Instruction.from_str(il))
 
         # Do processing
-        insts = gasan_pkg.instruction.process_block_insts(insts, ctx)
+        insts = gasan_trace_process_pkg.instruction.process_block_insts(insts, ctx)
 
         # Write out
         OUT.write(f"insts = {len(insts)}\n")

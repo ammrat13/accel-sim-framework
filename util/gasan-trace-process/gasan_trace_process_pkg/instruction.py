@@ -1,6 +1,6 @@
 from typing import List
-from gasan_config import VARIANT, EMIT_ARITH, EMIT_LOADS
-from gasan_pkg.context import Context
+from gasan_trace_process_config import VARIANT, EMIT_ARITH, EMIT_LOADS
+from gasan_trace_process_pkg.context import Context
 
 class Instruction:
     """Represents a single instruction from a processed trace. The format is

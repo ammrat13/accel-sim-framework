@@ -4,7 +4,7 @@ set -e -u -o pipefail
 # Check that all the required arguments were supplied
 # If not, die
 if [[ $# -ne 2 ]]; then
-    echo "Usage: ./gen-gasan-process-all.sh SRC_DIR DST_DIR"
+    echo "Usage: ./gen-gasan-trace-process-all.sh SRC_DIR DST_DIR"
     exit 1
 fi
 
@@ -27,8 +27,8 @@ DST_DIR=$(realpath "${DST_DIR}")
 
 # Get absolute paths
 THIS_DIR=$(realpath $(dirname "${BASH_SOURCE}"))
-PYS="${THIS_DIR}/gasan-process.py"
-OUT="${THIS_DIR}/gasan-process-all.sh"
+PYS="${THIS_DIR}/gasan-trace-process.py"
+OUT="${THIS_DIR}/gasan-trace-process-all.sh"
 
 # Do it
 # Find all the files that need to be processed in the source directory
