@@ -83,7 +83,7 @@ for bench in benchmarks:
 
         sh_contents += "\nexport CUDA_VERSION=\"" + cuda_version + "\"; export CUDA_VISIBLE_DEVICES=\"" + options.device_num + "\" ; " +\
             "export GASAN_ALLOC_RECORD_OUT_FNAME=" + this_trace_folder + "/alloc.log ; " +\
-            "export LD_PRELOAD=/accelsim/util/gasan-alloc-record/gasan-alloc-record.so ; " +\
+            "export LD_PRELOAD=" + this_directory + "/gasan-alloc-record.so ; " +\
             exec_path + " " + str(args)
 
         open(os.path.join(this_run_dir,"run.sh"), "w").write(sh_contents)
