@@ -16,4 +16,5 @@ target_include_directories(gasan-alloc-sim
 target_sources(gasan-alloc-sim
   PRIVATE
     "./src/main.cpp"
-    "./src/arguments.cpp")
+    "./src/arguments.cpp"
+    "./src/Simulator.cpp")

@@ -2,6 +2,7 @@
 #include <fstream>
 #include <iostream>
 
+#include "Simulator.hpp"
 #include "arguments.hpp"
 
 using namespace gasan::alloc_sim;
@@ -30,6 +31,7 @@ int main(int argc, char **argv) {
   trace.exceptions(std::ios::badbit);
 
   // Simulate all the trace entries
+  Simulator sim;
   while (!trace.eof()) {
     // Read the line
     // Skip it if it is empty, as will happen if we have a trailing newline
@@ -60,7 +62,7 @@ int main(int argc, char **argv) {
         assert(line_stream.eof() && "Too many arguments");
       }
       // Do the command
-      std::cout << "Saw cudaMalloc(" << tag << ", " << sz << ")" << std::endl;
+      sim.cudaMalloc(tag, sz);
       continue;
     }
 
@@ -74,7 +76,7 @@ int main(int argc, char **argv) {
         assert(line_stream.eof() && "Too many arguments");
       }
       // Do the command
-      std::cout << "Saw cudaFree(" << tag << ")" << std::endl;
+      sim.cudaFree(tag);
       continue;
     }
 
@@ -88,4 +90,7 @@ int main(int argc, char **argv) {
               << std::endl;
     std::exit(EXIT_FAILURE);
   }
+
+  // Print statistics and exit
+  std::cout << sim.getStats();
 }
