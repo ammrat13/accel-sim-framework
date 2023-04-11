@@ -15,4 +15,5 @@ target_include_directories(gasan-alloc-sim
     "./include/")
 target_sources(gasan-alloc-sim
   PRIVATE
-    "./src/main.cpp")
+    "./src/main.cpp"
+    "./src/arguments.cpp")
