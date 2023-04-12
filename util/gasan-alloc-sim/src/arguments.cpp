@@ -43,6 +43,11 @@ void gasan::alloc_sim::args::parse(int argc, char **argv) {
 
     // Use this opportunity to verify invariants that argparse can't check
     {
+      size_t sc = ARGS.get<size_t>("--scale");
+      if (sc >= 64)
+        throw std::runtime_error("scale must be less than 64");
+    }
+    {
       double rs = ARGS.get<double>("--redzone-scale");
       if (rs < 0.0 || 1.0 < rs)
         throw std::runtime_error("redzone scale must be between 0.0 and 1.0");

@@ -51,6 +51,13 @@ private:
   void updateStats();
 
   /**
+   * \brief Allocation granularity
+   *
+   * Computed from the scale parameter
+   */
+  size_t granularity_;
+
+  /**
    * \brief Represents a region of memory that can back an allocation
    *
    * This is mainly used by the free list, but it is also used by allocations so
@@ -69,6 +76,10 @@ private:
      * Returns `end - start`, or `nullopt` if the region is infinite.
      */
     std::optional<size_t> size() const;
+    /**
+     * \brief Checks if the region is infinite
+     */
+    bool isInfinite() const;
   };
 
   /**
