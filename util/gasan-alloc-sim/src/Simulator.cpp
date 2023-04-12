@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <iostream>
 
 #include "arguments.hpp"
 
@@ -52,7 +51,7 @@ std::partial_ordering Simulator::Region::operator<=>(const Region &that) const {
     if (that.isInfinite())
       return std::partial_ordering::unordered;
     if (*that.end <= this->start)
-      return std::partial_ordering::less;
+      return std::partial_ordering::greater;
     return std::partial_ordering::unordered;
   }
 
@@ -69,7 +68,8 @@ std::optional<size_t> Simulator::Region::size() const {
   return *this->end - this->start;
 }
 
-bool Simulator::Region::isInfinite() const { return !this->end; }
+bool Simulator::Region::isInfinite() const { return !this->end.has_value(); }
+bool Simulator::Region::isFinite() const { return this->end.has_value(); }
 
 Simulator::Simulator() : granularity_(1 << ARGS.get<size_t>("--scale")) {
   // Initialize the freelist with one huge chunk
@@ -118,7 +118,7 @@ void Simulator::updateStats() {
 
   // Check that no allocation is backed by an infinite region
   for (const auto &[ak, av] : this->alloc_list_)
-    assert(!av.region.isInfinite() &&
+    assert(av.region.isFinite() &&
            "Allocations must not be backed by infinite regions");
 
   // Check that the free list is totally ordered
@@ -172,7 +172,7 @@ void Simulator::cudaMalloc(uint64_t tag, size_t sz) {
   assert(reg->start % this->granularity_ == 0 && "Region must be aligned");
 
   // If we don't need to split
-  if (!reg->isInfinite() && *reg->size() - req_sz <= this->granularity_) {
+  if (reg->isFinite() && *reg->size() - req_sz <= this->granularity_) {
     // Insert the allocation
     {
       auto r = this->alloc_list_.emplace(tag, AllocationInfo{*reg, sz});
@@ -202,6 +202,43 @@ void Simulator::cudaMalloc(uint64_t tag, size_t sz) {
 }
 
 void Simulator::cudaFree(uint64_t tag) {
+
+  // Lookup the element to free
+  // It will be present
+  auto alloc = this->alloc_list_.find(tag);
+  assert(alloc != this->alloc_list_.end() && "Could not find element to free");
+
+  // Delete the allocation, keeping only the region
+  auto c = alloc->second.region;
+  this->alloc_list_.erase(alloc);
+  assert(c.isFinite() && "Allocated regions must be finite");
+
+  // Merge right if possible
+  auto r = this->free_list_.upper_bound(c);
+  if (r != this->free_list_.end() && *c.end == r->start) {
+    c.end = r->end;
+    this->free_list_.erase(r);
+  }
+
+  // Merge left if possible
+  // Note that the free list may be empty at this point. If it is, don't do
+  // anything
+  if (!this->free_list_.empty()) {
+    auto l = this->free_list_.lower_bound(c);
+    // Check that the lower bound we got isn't at the start of the list. If it
+    // is, then there are no elements to merge.
+    if (l != this->free_list_.begin()) {
+      l--;
+      if (l->end == c.start) {
+        c.start = l->start;
+        this->free_list_.erase(l);
+      }
+    }
+  }
+
+  // Insert the new region
+  this->free_list_.insert(c);
+
   // Remember to update
   this->updateStats();
 }

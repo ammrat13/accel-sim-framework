@@ -76,10 +76,15 @@ private:
      * Returns `end - start`, or `nullopt` if the region is infinite.
      */
     std::optional<size_t> size() const;
+
     /**
      * \brief Checks if the region is infinite
      */
     bool isInfinite() const;
+    /**
+     * \brief Checks if the region is finite
+     */
+    bool isFinite() const;
   };
 
   /**
