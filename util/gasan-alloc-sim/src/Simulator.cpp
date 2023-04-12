@@ -16,6 +16,14 @@ using namespace gasan::alloc_sim;
 #define INTROUNDTO(v, m) ((((v) + (m)-1) / (m)) * (m))
 
 std::ostream &gasan::alloc_sim::operator<<(std::ostream &os, const Stats &s) {
+  os << "max_sz " << s.max_sz << '\n';
+  os << "max_rq " << s.max_rq << '\n';
+  os << "max_shad_rq " << s.max_shad_rq << '\n';
+  os << "max_shad_ov " << s.max_shad_ov << '\n';
+  os << "max_redzone_rq " << s.max_redzone_rq << '\n';
+  os << "max_redzone_ov " << s.max_redzone_ov << '\n';
+  os << "max_extra_rq " << s.max_extra_rq << '\n';
+  os << "max_extra_ov " << s.max_extra_ov << '\n';
   return os;
 }
 
@@ -71,7 +79,8 @@ std::optional<size_t> Simulator::Region::size() const {
 bool Simulator::Region::isInfinite() const { return !this->end.has_value(); }
 bool Simulator::Region::isFinite() const { return this->end.has_value(); }
 
-Simulator::Simulator() : granularity_(1 << ARGS.get<size_t>("--scale")) {
+Simulator::Simulator()
+    : granularity_(1 << ARGS.get<size_t>("--scale")), stats_() {
   // Initialize the freelist with one huge chunk
   this->free_list_.emplace(0, std::nullopt);
   // Update the statistics
@@ -116,6 +125,14 @@ void Simulator::updateStats() {
                "Allocated region end must be aligned");
   }
 
+  // Check that all allocations have a required size that's at least the size
+  // needed by the user. Also check that the required size is aligned.
+  for (const auto &[ak, av] : this->alloc_list_) {
+    assert(av.required_size >= av.size && "Requested size too small");
+    assert(av.required_size % this->granularity_ == 0 &&
+           "Requested size not aligned");
+  }
+
   // Check that no allocation is backed by an infinite region
   for (const auto &[ak, av] : this->alloc_list_)
     assert(av.region.isFinite() &&
@@ -139,6 +156,28 @@ void Simulator::updateStats() {
       assert((f < av.region || f > av.region) &&
              "Allocation and Free lists not disjoint");
 #endif
+
+  this->stats_.max_sz = std::max(
+      this->stats_.max_sz,
+      std::accumulate(
+          this->alloc_list_.begin(), this->alloc_list_.end(), 0ul,
+          [](const auto &l, const auto &r) { return l + r.second.size; }));
+  this->stats_.max_rq =
+      std::max(this->stats_.max_rq, this->free_list_.rbegin()->start);
+
+  this->stats_.max_shad_rq =
+      INTROUNDTO(this->stats_.max_rq, this->granularity_) / this->granularity_;
+  this->stats_.max_shad_ov =
+      (double)this->stats_.max_shad_rq / (double)this->stats_.max_sz;
+
+  this->stats_.max_redzone_rq = this->stats_.max_rq - this->stats_.max_sz;
+  this->stats_.max_redzone_ov =
+      (double)this->stats_.max_redzone_rq / (double)this->stats_.max_sz;
+
+  this->stats_.max_extra_rq =
+      this->stats_.max_shad_rq + this->stats_.max_redzone_rq;
+  this->stats_.max_extra_ov =
+      (double)this->stats_.max_extra_rq / (double)this->stats_.max_sz;
 }
 
 void Simulator::cudaMalloc(uint64_t tag, size_t sz) {
@@ -175,7 +214,7 @@ void Simulator::cudaMalloc(uint64_t tag, size_t sz) {
   if (reg->isFinite() && *reg->size() - req_sz <= this->granularity_) {
     // Insert the allocation
     {
-      auto r = this->alloc_list_.emplace(tag, AllocationInfo{*reg, sz});
+      auto r = this->alloc_list_.emplace(tag, AllocationInfo{*reg, sz, req_sz});
       assert(r.second && "Multiple allocations with same tag");
     }
     // Mark the original region as not free
@@ -185,7 +224,8 @@ void Simulator::cudaMalloc(uint64_t tag, size_t sz) {
     // Insert the allocation
     {
       auto r = this->alloc_list_.emplace(
-          tag, AllocationInfo{Region{reg->start, reg->start + req_sz}, sz});
+          tag,
+          AllocationInfo{Region{reg->start, reg->start + req_sz}, sz, req_sz});
       assert(r.second && "Multiple allocations with same tag");
     }
     // Increase the start of the region in the free list

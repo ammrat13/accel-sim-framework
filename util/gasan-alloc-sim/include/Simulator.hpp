@@ -11,6 +11,18 @@ namespace gasan::alloc_sim {
 
 struct Stats {
 
+  size_t max_sz; //!< Maximum number of bytes allocated
+  size_t max_rq; //!< Maximum amount of memory used
+
+  size_t max_shad_rq; //!< Maximum amount of shadow memory required
+  double max_shad_ov; //!< Maximum overhead of shadow memory
+
+  size_t max_redzone_rq;  //!< Maximum amount of redzone required
+  double max_redzone_ov;  //!< Maximum overhead of redzones
+
+  size_t max_extra_rq;  //!< Maximum memory used for redzones and shadow memory
+  double max_extra_ov;  //!< Maximum total overhead
+
   /**
    * \brief Pretty-print the statistics
    */
@@ -93,8 +105,9 @@ private:
    * Used for calculating statistics and to remember how to free allocations.
    */
   struct AllocationInfo {
-    Region region; //!< Region backing this allocation
-    size_t size;   //!< Size requested by this allocation
+    Region region;          //!< Region backing this allocation
+    size_t size;            //!< Size requested by this allocation
+    size_t required_size;   //!< Size required including redzones
   };
 
   /**

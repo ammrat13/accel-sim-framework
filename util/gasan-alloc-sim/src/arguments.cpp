@@ -57,5 +57,8 @@ void gasan::alloc_sim::args::parse(int argc, char **argv) {
     std::cerr << err.what() << std::endl;
     std::cerr << ARGS;
     std::exit(EXIT_FAILURE);
+  } catch (const std::invalid_argument &err) {
+    std::cerr << ARGS;
+    std::exit(EXIT_FAILURE);
   }
 }
