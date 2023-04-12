@@ -1,4 +1,4 @@
 # Branch: v2.9
 [submodule "util/gasan-alloc-sim/third-party/argparse"]
-	path = util/gasan-alloc-sim/third-party/argparse
+	path = util/gasan/gasan-alloc-sim/third-party/argparse
 	url = https://github.com/p-ranav/argparse.git
