@@ -36,6 +36,8 @@ static bool can_output(void) {
   return true;
 }
 
+// Macro to handle common tracing functionality
+// It looks up the original function and puts that in a predefined variable
 #define TRACE(func, args...) \
   cudaError_t func(args) { \
     static cudaError_t (*real_##func)(args) = NULL; \
