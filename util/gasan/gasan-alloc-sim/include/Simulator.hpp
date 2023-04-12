@@ -23,6 +23,8 @@ struct Stats {
   size_t max_extra_rq;  //!< Maximum memory used for redzones and shadow memory
   double max_extra_ov;  //!< Maximum total overhead
 
+  size_t max_tot_rq;  //!< Sum of all memory required, including shadow memory
+
   /**
    * \brief Pretty-print the statistics
    */

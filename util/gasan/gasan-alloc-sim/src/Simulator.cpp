@@ -24,6 +24,7 @@ std::ostream &gasan::alloc_sim::operator<<(std::ostream &os, const Stats &s) {
   os << "max_redzone_ov " << s.max_redzone_ov << '\n';
   os << "max_extra_rq " << s.max_extra_rq << '\n';
   os << "max_extra_ov " << s.max_extra_ov << '\n';
+  os << "max_tot_rq " << s.max_tot_rq << '\n';
   return os;
 }
 
@@ -178,6 +179,8 @@ void Simulator::updateStats() {
       this->stats_.max_shad_rq + this->stats_.max_redzone_rq;
   this->stats_.max_extra_ov =
       (double)this->stats_.max_extra_rq / (double)this->stats_.max_sz;
+
+  this->stats_.max_tot_rq = this->stats_.max_rq + this->stats_.max_shad_rq;
 }
 
 void Simulator::cudaMalloc(uint64_t tag, size_t sz) {
