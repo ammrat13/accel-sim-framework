@@ -40,6 +40,7 @@ size_t Simulator::AllocationInfo::redzoneSize() const {
 std::partial_ordering Simulator::Region::operator<=>(const Region &that) const {
 
   // Assert both regions have their ends after their starts
+  // Zero size regions are allowed
   assert(this->end >= this->start &&
          "This region's end must be after its start");
   assert(that.end >= that.start && "That region's end must be after its start");
@@ -69,6 +70,7 @@ std::partial_ordering Simulator::Region::operator<=>(const Region &that) const {
 
 size_t Simulator::Region::size() const {
   // Check that the end is after the start, then return
+  // Zero size regions are allowed
   assert(this->end >= this->start && "Region end must be after start");
   return this->end - this->start;
 }
@@ -95,10 +97,9 @@ Simulator::Simulator()
 Stats Simulator::getStats() const { return this->stats_; }
 
 void Simulator::updateStats() {
-  // Do assertions here
-  // These take quadratic time, so only do them in debug builds
+  // Do debug printouts if needed
+  // They don't exist in release builds
 #ifndef NDEBUG
-
   // Debug printouts
   if (ARGS.get<bool>("--debug")) {
     std::cout << "REGION LIST:\n";
@@ -107,6 +108,11 @@ void Simulator::updateStats() {
                 << r.end << '\n';
     std::cout << std::endl;
   }
+#endif
+
+  // Do assertions here
+  // These take quadratic time, so only do them in debug builds
+#ifndef NDEBUG
 
   // The region list should not be empty
   assert(!this->region_list_.empty() && "Must have at least one region");

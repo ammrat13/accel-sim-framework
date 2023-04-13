@@ -36,10 +36,12 @@ void gasan::alloc_sim::args::parse(int argc, char **argv) {
       .scan<'f', double>()
       .help("number of redzone bytes as a fraction of allocation size");
 
+#ifndef NDEBUG
   ARGS.add_argument("-d", "--debug")
       .default_value(false)
       .implicit_value(true)
       .help("print debug outputs for the region list");
+#endif
 
   // Try to parse
   // See: https://github.com/p-ranav/argparse
