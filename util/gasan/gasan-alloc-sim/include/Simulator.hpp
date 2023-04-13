@@ -124,9 +124,12 @@ private:
     bool isInfinite() const;
 
     /**
-     * \brief Check if we have an allocation in this region
+     * \defgroup alloc Check if we have an allocation in this region
+     * @{
      */
-    bool isAllocated() const;
+    bool isAlloc() const;
+    bool isFree() const;
+    /** @} */
   };
 
   /**

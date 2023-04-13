@@ -44,22 +44,20 @@ std::partial_ordering Simulator::Region::operator<=>(const Region &that) const {
          "This region's end must be after its start");
   assert(that.end >= that.start && "That region's end must be after its start");
 
-  // If the starts are equal, return equal if the ends are, otherwise
-  // incomparable
-  if (this->start == that.start)
-    return this->end == that.end ? std::partial_ordering::equivalent
-                                 : std::partial_ordering::unordered;
+  // If starts and ends are equal, then equal
+  if (this->start == that.end && this->end == that.end)
+    return std::partial_ordering::equivalent;
 
   // If this start is to the left, check if this end is also to the left,
   // otherwise incomparable.
-  if (this->start < that.start) {
+  if (this->start <= that.start) {
     if (this->end <= that.start)
       return std::partial_ordering::less;
     return std::partial_ordering::unordered;
   }
 
   // Same as above, but with the roles reversed
-  if (this->start > that.start) {
+  if (this->start >= that.start) {
     if (this->start >= that.end)
       return std::partial_ordering::greater;
     return std::partial_ordering::unordered;
@@ -79,15 +77,16 @@ bool Simulator::Region::isInfinite() const {
   return this->end == std::numeric_limits<size_t>::max();
 }
 
-bool Simulator::Region::isAllocated() const {
-  return this->alloc_info.has_value();
-}
+bool Simulator::Region::isAlloc() const { return this->alloc_info.has_value(); }
+
+bool Simulator::Region::isFree() const { return !this->alloc_info.has_value(); }
 
 Simulator::Simulator()
     : granularity_{1ul << ARGS.get<size_t>("--scale")}, stats_{} {
   // Initialize the freelist with one huge chunk
-  this->region_list_.push_back(
-      {.start = 0ul, .end = std::numeric_limits<size_t>::max()});
+  this->region_list_.push_back({.start = 0,
+                                .end = std::numeric_limits<size_t>::max(),
+                                .alloc_info = std::nullopt});
   // Update the statistics
   // We mainly do this for invariant checking
   this->updateStats();
@@ -112,7 +111,7 @@ void Simulator::updateStats() {
                      [](const auto &r) { return !r.isInfinite(); }) &&
          "Must have only one infinite region");
   // The infinite region should not be allocated
-  assert(!this->region_list_.crbegin()->isAllocated() &&
+  assert(!this->region_list_.crbegin()->isAlloc() &&
          "The infinite region must not be allocated");
 
   // Assert that all the elements of the region list are contiguous
@@ -122,10 +121,34 @@ void Simulator::updateStats() {
                     return r.end;
                   });
   // Assert that all the elements of the region list are sorted
-  for (auto i = this->region_list_.cbegin(); i != this->region_list_.cend();
-       i++) {
-    for (auto j = this->region_list_.cbegin(); j != i; j++) {
-      assert(*j < *i && "Region list must be sorted");
+  for (auto ri = this->region_list_.cbegin(); ri != this->region_list_.cend();
+       ri++) {
+    for (auto rj = this->region_list_.cbegin(); rj != ri; rj++) {
+      assert(*rj < *ri && "Region list must be sorted");
+    }
+  }
+  // Assert that they alternate between free and allocated
+  // The first one should be free
+  std::accumulate(this->region_list_.cbegin(), this->region_list_.cend(), false,
+                  [](bool expected_alloc, const auto &r) {
+                    assert(r.isAlloc() == expected_alloc &&
+                           "Regions must alternate between free and allocated");
+                    return !expected_alloc;
+                  });
+
+  // All allocations must be aligned
+  for (const auto &r : this->region_list_)
+    if (r.isAlloc())
+      assert(r.start % this->granularity_ == 0 &&
+             "Allocation starts must be aligned");
+  // Check redzone constraints
+  for (auto r = this->region_list_.cbegin(); r != this->region_list_.cend();
+       r++) {
+    if (r->isAlloc()) {
+      assert(std::prev(r)->size() >= r->alloc_info->redzoneSize() &&
+             "Left redzone constraint violated");
+      assert(std::next(r)->size() >= r->alloc_info->redzoneSize() &&
+             "Right redzone constraint violated");
     }
   }
 #endif
@@ -135,7 +158,7 @@ void Simulator::updateStats() {
       this->stats_.max_us,
       std::accumulate(this->region_list_.cbegin(), this->region_list_.cend(),
                       0ul, [](size_t us, const auto &r) {
-                        if (r.isAllocated())
+                        if (r.isAlloc())
                           return us + r.alloc_info->user_size;
                         else
                           return us;
@@ -169,6 +192,82 @@ void Simulator::updateStats() {
 }
 
 void Simulator::cudaMalloc(uint64_t tag, size_t sz) {
+
+  // Create an allocation info structure for the size
+  const AllocationInfo ai = {.tag = tag, .user_size = sz};
+
+  // Find a region in which we can insert this allocation
+  // Keep track of the extra padding we need before
+  std::list<Region>::iterator reg;
+  size_t start_pad;
+  for (reg = this->region_list_.begin(), start_pad = 0;
+       reg != this->region_list_.end(); reg++) {
+
+    // Only work with free regions
+    if (reg->isAlloc())
+      continue;
+
+    // Most of this loop computes the required size of the region
+    size_t required_size = 0;
+
+    // Compute the redzone we need before
+    // If we have a previous region, check how much redzone it needs
+    size_t redzone_before = ai.redzoneSize();
+    if (reg != this->region_list_.begin()) {
+      assert(std::prev(reg)->isAlloc() &&
+             "Region before free must be allocated");
+      redzone_before =
+          std::max(ai.redzoneSize(), std::prev(reg)->alloc_info->redzoneSize());
+    }
+    // Add to required size
+    required_size += redzone_before;
+
+    // Align
+    // This is the padding we need at the start if we choose to go with this
+    // region
+    if ((reg->start + required_size) % this->granularity_ != 0)
+      required_size += this->granularity_ -
+                       ((reg->start + required_size) % this->granularity_);
+    start_pad = required_size;
+
+    // Add in what we need
+    required_size += ai.user_size;
+
+    // Compute the redzone we need after
+    // If we have a next region, check how much redzone it needs
+    size_t redzone_after = ai.redzoneSize();
+    if (std::next(reg) != this->region_list_.end()) {
+      assert(std::next(reg)->isAlloc() &&
+             "Region after free must be allocated");
+      redzone_after =
+          std::max(ai.redzoneSize(), std::next(reg)->alloc_info->redzoneSize());
+    }
+    // Add to required size
+    required_size += redzone_after;
+
+    // Check whether the size requirement is met
+    if (reg->size() >= required_size)
+      break;
+  }
+
+  // We have to have found a region
+  // Also check the padding
+  assert(reg != this->region_list_.end() && "Could not find suitable region");
+  assert(start_pad >= ai.redzoneSize() && "Start padding too small");
+  assert((reg->start + start_pad) % this->granularity_ == 0 &&
+         "Bad start alignment");
+
+  // Insert new allocation
+  // Save important places
+  const size_t r_start = reg->start;
+  const size_t a_start = r_start + start_pad;
+  const size_t a_end = a_start + ai.user_size;
+  this->region_list_.insert(
+      reg, {.start = r_start, .end = a_start, .alloc_info = std::nullopt});
+  this->region_list_.insert(reg,
+                            {.start = a_start, .end = a_end, .alloc_info = ai});
+  reg->start = a_end;
+  assert(reg->end >= reg->start && "Regions must start before they end");
 
   // Remember to update
   this->updateStats();
