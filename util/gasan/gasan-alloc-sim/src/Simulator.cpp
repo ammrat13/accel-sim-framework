@@ -99,6 +99,15 @@ void Simulator::updateStats() {
   // These take quadratic time, so only do them in debug builds
 #ifndef NDEBUG
 
+  // Debug printouts
+  if (ARGS.get<bool>("--debug")) {
+    std::cout << "REGION LIST:\n";
+    for (const auto &r : this->region_list_)
+      std::cout << "- " << (r.isFree() ? 'F' : 'A') << ' ' << r.start << ' '
+                << r.end << '\n';
+    std::cout << std::endl;
+  }
+
   // The region list should not be empty
   assert(!this->region_list_.empty() && "Must have at least one region");
 
@@ -193,6 +202,13 @@ void Simulator::updateStats() {
 
 void Simulator::cudaMalloc(uint64_t tag, size_t sz) {
 
+  // The tag should not exist in the list
+  assert(std::none_of(this->region_list_.cbegin(), this->region_list_.cend(),
+                      [tag](const auto &r) {
+                        return r.isAlloc() && r.alloc_info->tag == tag;
+                      }) &&
+         "Tag already in list");
+
   // Create an allocation info structure for the size
   const AllocationInfo ai = {.tag = tag, .user_size = sz};
 
@@ -274,6 +290,34 @@ void Simulator::cudaMalloc(uint64_t tag, size_t sz) {
 }
 
 void Simulator::cudaFree(uint64_t tag) {
+
+  // There should only be one element matching the tag
+  assert(std::count_if(this->region_list_.cbegin(), this->region_list_.cend(),
+                       [tag](const auto &r) {
+                         return r.isAlloc() && r.alloc_info->tag == tag;
+                       }) == 1 &&
+         "Not exactly one element matching tag");
+
+  // Find the tag
+  auto cur = std::find_if(
+      this->region_list_.begin(), this->region_list_.end(),
+      [tag](const auto &r) { return r.isAlloc() && r.alloc_info->tag == tag; });
+  assert(cur != this->region_list_.end() && "No matching tag");
+
+  // Get the previous and next regions
+  assert(cur != this->region_list_.cbegin() &&
+         "Allocated region at start of list");
+  assert(std::next(cur) != this->region_list_.cend() &&
+         "Allocated region at end of list");
+  auto prev = std::prev(cur);
+  auto next = std::next(cur);
+  assert(prev->isFree() && "Region before allocated must be free");
+  assert(next->isFree() && "Region after allocated must be free");
+
+  // Make previous eat cur and next
+  prev->end = next->end;
+  this->region_list_.erase(cur);
+  this->region_list_.erase(next);
 
   // Remember to update
   this->updateStats();
