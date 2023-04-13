@@ -28,9 +28,9 @@ void gasan::alloc_sim::args::parse(int argc, char **argv) {
   ARGS.add_argument("-b", "--redzone-base")
       .metavar("REDZONE-BASE")
       .default_value(256ul)
-      .scan<'x', size_t>()
+      .scan<'i', size_t>()
       .help("minimum number of redzone bytes per allocation");
-  ARGS.add_argument("-l", "--redzone-scale")
+  ARGS.add_argument("-l", "--redzone-linear")
       .metavar("REDZONE-SCALE")
       .default_value(0.5)
       .scan<'f', double>()
@@ -48,9 +48,9 @@ void gasan::alloc_sim::args::parse(int argc, char **argv) {
         throw std::runtime_error("scale must be less than 64");
     }
     {
-      double rs = ARGS.get<double>("--redzone-scale");
+      double rs = ARGS.get<double>("--redzone-linear");
       if (rs < 0.0 || 1.0 < rs)
-        throw std::runtime_error("redzone scale must be between 0.0 and 1.0");
+        throw std::runtime_error("redzone linear must be between 0.0 and 1.0");
     }
 
   } catch (const std::runtime_error &err) {

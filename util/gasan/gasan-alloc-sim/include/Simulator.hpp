@@ -2,28 +2,26 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <list>
 #include <optional>
 #include <ostream>
-#include <set>
-#include <unordered_map>
 
 namespace gasan::alloc_sim {
 
+/**
+ * \brief Statistics for the simulator
+ * \see Simulator
+ */
 struct Stats {
 
-  size_t max_sz; //!< Maximum number of bytes allocated
-  size_t max_rq; //!< Maximum amount of memory used
-
+  size_t max_us;      //!< Maximum number of bytes allocated by the user
+  size_t max_rq;      //!< Maximum amount of memory used
   size_t max_shad_rq; //!< Maximum amount of shadow memory required
-  double max_shad_ov; //!< Maximum overhead of shadow memory
-
-  size_t max_redzone_rq;  //!< Maximum amount of redzone required
-  double max_redzone_ov;  //!< Maximum overhead of redzones
-
-  size_t max_extra_rq;  //!< Maximum memory used for redzones and shadow memory
-  double max_extra_ov;  //!< Maximum total overhead
-
   size_t max_tot_rq;  //!< Sum of all memory required, including shadow memory
+
+  double max_ov;      //!< Overhead with fragmentation and redzones
+  double max_shad_ov; //!< Overhead of shadow memory
+  double max_tot_ov;  //!< Total overhead
 
   /**
    * \brief Pretty-print the statistics
@@ -72,55 +70,73 @@ private:
   size_t granularity_;
 
   /**
-   * \brief Represents a region of memory that can back an allocation
+   * \brief Information for an allocation
    *
-   * This is mainly used by the free list, but it is also used by allocations so
-   * they can be freed. These have a partial order, but elements in the free
-   * list should be totally ordered.
+   * This is contained in the Region housing the allocation. The redzones are
+   * not included since they are free regions.
+   */
+  struct AllocationInfo {
+    uint64_t tag;     //!< The tag associated with this allocation
+    size_t user_size; //!< Allocation size requested by the user
+
+    /**
+     * \return The size of the redzone needed on each side of this allocation
+     */
+    size_t redzoneSize() const;
+  };
+
+  /**
+   * \brief A region of memory
    */
   struct Region {
-    size_t start;              //!< Starting internal address of the region
-    std::optional<size_t> end; //!< Ending internal address, or infinity
+    size_t start; //!< First address of the region
+    size_t end;   //!< Just past the last address of the region
 
+    /**
+     * \brief Whether this region is allocated, and the information for it
+     */
+    std::optional<AllocationInfo> alloc_info;
+
+    /**
+     * \brief Compares to regions if they don't overlap
+     *
+     * Also checks for equality. That's the only case where Regions aren't
+     * unordered when they overlap.
+     *
+     * \return Whether one regions is entirely to the left or right of the
+     * other
+     */
     std::partial_ordering operator<=>(const Region &that) const;
 
     /**
-     * \brief Computes the size of this region
-     *
-     * Returns `end - start`, or `nullopt` if the region is infinite.
+     * \return The difference between the start and the end
      */
-    std::optional<size_t> size() const;
-
+    size_t size() const;
     /**
-     * \brief Checks if the region is infinite
+     * \brief Check if this is logically the "infinite" region
+     *
+     * Internally, this is modelled as having the end be the maximum possible
+     * value for `size_t`. We should never need that much memory. There is
+     * logically one infinite region at the end of the list of regions.
+     *
+     * \return Whether the end stretches to the maximum value
      */
     bool isInfinite() const;
+
     /**
-     * \brief Checks if the region is finite
+     * \brief Check if we have an allocation in this region
      */
-    bool isFinite() const;
+    bool isAllocated() const;
   };
 
   /**
-   * \brief Metadata for allocations
+   * \brief List of all the regions we know about
    *
-   * Used for calculating statistics and to remember how to free allocations.
+   * Instead of storing the free and allocated regions separately, we just keep
+   * them in a single list. This makes it easier to handle redzones, which must
+   * be in free regions.
    */
-  struct AllocationInfo {
-    Region region;          //!< Region backing this allocation
-    size_t size;            //!< Size requested by this allocation
-    size_t required_size;   //!< Size required including redzones
-  };
-
-  /**
-   * \brief Set of regions we can allocate from
-   */
-  std::set<Region> free_list_;
-
-  /**
-   * \brief Set of currently active allocations
-   */
-  std::unordered_map<size_t, AllocationInfo> alloc_list_;
+  std::list<Region> region_list_;
 };
 
 std::ostream &operator<<(std::ostream &os, const Stats &s);
